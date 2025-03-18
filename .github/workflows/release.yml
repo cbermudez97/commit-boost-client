@@ -17,10 +17,10 @@ jobs:
           - x86_64-unknown-linux-gnu
           # - x86_64-pc-windows-gnu
           # - x86_64-apple-darwin
-          - aarch64-apple-darwin
+          # - aarch64-apple-darwin
         name:
-          - commit-boost-cli
-          - commit-boost-pbs
+          # - commit-boost-cli
+          # - commit-boost-pbs
           - commit-boost-signer
         include:
           - target: x86_64-unknown-linux-gnu
@@ -29,8 +29,8 @@ jobs:
           #  os: windows-latest
           # - target: x86_64-apple-darwin
           #   os: macos-latest
-          - target: aarch64-apple-darwin
-            os: macos-latest
+          # - target: aarch64-apple-darwin
+          #   os: macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout code
@@ -105,45 +105,48 @@ jobs:
           path: |
             ${{ matrix.name }}-${{ github.ref_name }}-${{ matrix.target }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
 
-  build-and-push-pbs-docker:
-    needs: [build-binaries]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: "stable"
-          fetch-depth: 0
+  # build-and-push-pbs-docker:
+  #   needs: [build-binaries]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: "stable"
+  #         fetch-depth: 0
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Login to GitHub Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push PBS Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ghcr.io/commit-boost/pbs:${{ github.ref_name }}
-            ${{ !contains(github.ref_name, 'rc') && 'ghcr.io/commit-boost/pbs:latest' || '' }}
-          cache-from: type=registry,ref=ghcr.io/commit-boost/pbs:buildcache
-          cache-to: type=registry,ref=ghcr.io/commit-boost/pbs:buildcache,mode=max
-          file: provisioning/pbs.Dockerfile
+  #     - name: Build and push PBS Docker image
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         push: true
+  #         platforms: linux/amd64,linux/arm64
+  #         tags: |
+  #           ghcr.io/commit-boost/pbs:${{ github.ref_name }}
+  #           ${{ !contains(github.ref_name, 'rc') && 'ghcr.io/commit-boost/pbs:latest' || '' }}
+  #         cache-from: type=registry,ref=ghcr.io/commit-boost/pbs:buildcache
+  #         cache-to: type=registry,ref=ghcr.io/commit-boost/pbs:buildcache,mode=max
+  #         file: provisioning/pbs.Dockerfile
 
   build-and-push-signer-docker:
     needs: [build-binaries]
     runs-on: ubuntu-latest
+    env:
+      IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/cb-signer
+      IMAGE_LATEST: ghcr.io/${{ github.repository_owner }}/cb-signer:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -171,32 +174,32 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/commit-boost/signer:${{ github.ref_name }}
-            ${{ !contains(github.ref_name, 'rc') && 'ghcr.io/commit-boost/signer:latest' || '' }}
-          cache-from: type=registry,ref=ghcr.io/commit-boost/signer:buildcache
-          cache-to: type=registry,ref=ghcr.io/commit-boost/signer:buildcache,mode=max
+            ${{ env.IMAGE_BASE }}:${{ github.ref_name }}
+            ${{ !contains(github.ref_name, 'rc') && env.IMAGE_LATEST || '' }}
+          cache-from: type=registry,ref=${{ env.IMAGE_BASE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_BASE }}:buildcache,mode=max
           file: provisioning/signer.Dockerfile
 
-  finalize-release:
-    needs:
-      - build-binaries
-      - build-and-push-pbs-docker
-      - build-and-push-signer-docker
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-          pattern: "commit-boost-*"
+  # finalize-release:
+  #   needs:
+  #     - build-binaries
+  #     - build-and-push-pbs-docker
+  #     - build-and-push-signer-docker
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: ./artifacts
+  #         pattern: "commit-boost-*"
 
-      - name: Finalize Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./artifacts/**/*
-          draft: true
-          prerelease: false
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Finalize Release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         files: ./artifacts/**/*
+  #         draft: true
+  #         prerelease: false
+  #         tag_name: ${{ github.ref_name }}
+  #         name: ${{ github.ref_name }}
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
