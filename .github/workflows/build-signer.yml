@@ -155,8 +155,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: "stable"
           fetch-depth: 0
+          submodules: true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
